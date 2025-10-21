@@ -3,10 +3,13 @@ package repositories
 import (
 	"errors"
 	"gin-freemarket/models"
+
+	"gorm.io/gorm"
 )
 
 // アイテムのリポジトリが持つべき基本機能（インターフェース）の実装
 // メソッド名() (戻り値)
+// メソッドの引数は基本的に値渡し。参照を渡すのはDBぐらい
 type IItemRepository interface {
 
 	// FindAllというメソッド名で、戻り値がmodels.Item型スライスへのポインタとerrorを返す（errorがない場合はnil）
@@ -85,4 +88,82 @@ func (r *ItemMemoryRopository) Delete(itemId uint) error {
 		}
 	}
 	return errors.New("Item not Found")
+}
+
+type ItemRepository struct {
+	db *gorm.DB
+}
+
+// Create implements IItemRepository.
+func (r *ItemRepository) Create(newItem models.Item) (*models.Item, error) {
+	// gormを介したDB登録では引数は参照を渡すこと
+	result := r.db.Create(&newItem)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &newItem, nil
+}
+
+// Delete implements IItemRepository.
+func (r *ItemRepository) Delete(itemId uint) error {
+	deleteItem, err := r.FindById(itemId)
+	if err != nil {
+		return err
+	}
+	// 論理削除(deleted atに時刻が入るだけ)
+	result := r.db.Delete(&deleteItem)
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+// FindAll implements IItemRepository.
+func (r *ItemRepository) FindAll() (*[]models.Item, error) {
+
+	// 検索結果を格納する変数
+	var items []models.Item
+
+	// 上記の変数の型はすでにmodels.Itemで定義されている。それに合わせた形で
+	// データを取得&整形してくれる
+	result := r.db.Find(&items)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &items, nil
+}
+
+// FindById implements IItemRepository.
+func (r *ItemRepository) FindById(itemId uint) (*models.Item, error) {
+	var item models.Item
+
+	// 主キーがidであればカラムの指定はいらない
+	// カラム指定の場合は次のような感じ
+	// result := r.db.First(&item, "id = ?", itemId)
+	result := r.db.First(&item, itemId)
+	if result.Error != nil {
+		if result.Error.Error() == "record not found" {
+			return nil, errors.New("Item is not found")
+		}
+		return nil, result.Error
+	}
+	return &item, nil
+}
+
+// Update implements IItemRepository.
+func (r *ItemRepository) Update(updateItem models.Item) (*models.Item, error) {
+
+	// Saveメソッドは更新対象が存在すればupdate、存在しなければinsertといったアップサートを行う
+	// updateItemには必要な部分のみを変更した1レコードが入っていて、それをそのまま上書きという感じ（=必要な部分のみ更新がはいる）
+	result := r.db.Save(&updateItem)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &updateItem, nil
+}
+
+func NewItemRepository(db *gorm.DB) IItemRepository {
+	return &ItemRepository{db: db}
 }
