@@ -19,6 +19,7 @@ type IItemController interface {
 	FindById(ctx *gin.Context)
 	Create(ctx *gin.Context)
 	Update(ctx *gin.Context)
+	Delete(ctx *gin.Context)
 }
 
 // コントローラクラスの実態（classに相当。goにはクラスの概念がない。。。）
@@ -98,6 +99,13 @@ func (c *ItemController) Create(ctx *gin.Context) {
 }
 
 func (c *ItemController) Update(ctx *gin.Context) {
+
+	// uintは環境依存（32ビット or 64ビット）となる。これはサーバ環境がどちらでも動くようにするため
+	// 一方でuint64、uint32という型も存在し、上記のuintとは全く異なる型。
+	// goはString型を直接uintにはキャストできず、ParseUintを噛ませる必要がある。ただ、これを使うと
+	// uint32 or uint64のどちらかに変換されてしまう。uint64とuintは異なる型なのでそのまま引数で渡すと怒られる。
+	// なので、uint64をuintにキャストしている。（メソッド側をuint64戻り値にしても解消する）
+
 	itemId, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 
 	// パラメータチェック
@@ -124,4 +132,24 @@ func (c *ItemController) Update(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": updateedItem})
+}
+
+func (c *ItemController) Delete(ctx *gin.Context) {
+	itemId, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id"})
+		return
+	}
+
+	err = c.service.Delete(uint(itemId))
+
+	if err != nil {
+		if err.Error() == "Item is not found" {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected error"})
+		return
+	}
+	ctx.Status(http.StatusOK) // ステータスコードのみを返す
 }

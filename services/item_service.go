@@ -12,6 +12,7 @@ type IItemService interface {
 	FindById(itemId uint) (*models.Item, error)
 	Create(createItemInput dto.CreateItemInput) (*models.Item, error)
 	Update(itemId uint, updateItemInput dto.UpdateItemInput) (*models.Item, error)
+	Delete(itemId uint) error
 }
 
 // ItemServiceの本体（クラスに相当）
@@ -73,4 +74,8 @@ func (s *ItemService) Update(itemId uint, updateItemInput dto.UpdateItemInput) (
 	// createは構造体をその時に作っていてそのまま渡しているので値渡しとなる。
 	// よっぽど巨大なインスタンスを渡さないのであれば、参照渡しでOK
 	return s.repository.Update(*targetItem)
+}
+
+func (s *ItemService) Delete(itemId uint) error {
+	return s.repository.Delete(itemId)
 }

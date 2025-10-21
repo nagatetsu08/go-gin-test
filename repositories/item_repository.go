@@ -18,6 +18,7 @@ type IItemRepository interface {
 
 	Create(newItem models.Item) (*models.Item, error)
 	Update(newItem models.Item) (*models.Item, error)
+	Delete(itemId uint) error
 }
 
 // アイテム情報をメモリ上に保存・取り扱うための「リポジトリ（倉庫）」となる構造体の定義
@@ -67,4 +68,21 @@ func (r *ItemMemoryRopository) Update(updateItem models.Item) (*models.Item, err
 		}
 	}
 	return nil, errors.New("Unexpected Error")
+}
+
+func (r *ItemMemoryRopository) Delete(itemId uint) error {
+	for i, v := range r.items {
+		if v.ID == itemId {
+			// goにはスライス（配列）から特定のindexを削除するという処理がないので、以下のように実現している
+
+			// 1.r.items[:i] は「削除対象より前の要素」の新しいスライス、r.items[i+1:] は「削除対象より後の要素」新しいスライス
+			// 2.appendを使って「削除対象より前の要素」の新しいスライスに対し、r.items[i+1:] は「削除対象より後の要素」新しいスライスを合体させる
+			// 3.ただし、スライス同士の結合はそのままではできないので、合体させるスライス（削除対象より後の要素）をスプレッド演算子を使って展開しながらappend
+			// → これにより該当idのみを除外しつつ、新しいスライスを作成するということが可能になる
+
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("Item not Found")
 }
