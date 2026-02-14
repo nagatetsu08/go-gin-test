@@ -32,3 +32,7 @@ go.work.sum
 # .vscode/
 memo/*
 tmp
+
+# Docker volumes
+docker/postgres/pgdata/
+docker/pgadmin/

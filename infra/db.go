@@ -5,12 +5,15 @@ import (
 	"os"
 
 	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 func SetupDB() *gorm.DB {
-	// dsn := "host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai"
-	// db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+
+	// テスト時はSQLiteを通常時はpostgresを使用する
+	env := os.Getenv("ENV")
+
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Tokyo",
 		os.Getenv("DB_HOST"),
@@ -20,7 +23,17 @@ func SetupDB() *gorm.DB {
 		os.Getenv("DB_PORT"),
 	)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	var (
+		db  *gorm.DB
+		err error
+	)
+
+	if env == "prod" {
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	} else {
+		db, err = gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	}
+
 	if err != nil {
 		panic("Failed to connect database")
 	}

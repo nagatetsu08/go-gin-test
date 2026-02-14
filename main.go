@@ -3,23 +3,16 @@ package main
 import (
 	"gin-freemarket/controllers"
 	"gin-freemarket/infra"
+	"gin-freemarket/middlewares"
 	"gin-freemarket/repositories"
 	"gin-freemarket/services"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-func main() {
-
-	infra.Initialize()
-	db := infra.SetupDB()
-
-	// items := []models.Item{
-	// 	{ID: 1, Name: "商品1", Price: 1000, Description: "説明1", SoldOut: false},
-	// 	{ID: 2, Name: "商品2", Price: 2000, Description: "説明2", SoldOut: true},
-	// 	{ID: 3, Name: "商品3", Price: 3000, Description: "説明3", SoldOut: false},
-	// }
-
+func setUpRouter(db *gorm.DB) *gin.Engine {
 	// リポジトリ形式にしているので、切り替えが簡単（大元を変えればいいだけ。）
 	// 実用的な例で言うと、モックで作っていた部分を本番ように差し替えたりするときに使える。
 
@@ -34,19 +27,36 @@ func main() {
 
 	// エンドポイント設定
 	router := gin.Default()
+	router.Use(cors.Default()) // 全てのサイトからのアクセスを許可する（本番ではあまり良くない）
+
+	// 以下本番設定
+	// config := cors.DefaultConfig()
+	// config.AllowOrigins = []string{"http://google.com"}
+	// router.Use(cors.New(config))
 
 	// ルーティングをグルーピング化する
 	itemRouter := router.Group("/items")
+	itemRoouteWithAuth := router.Group("/items", middlewares.AuthMiddleware(authService))
 	authRouter := router.Group("/auth")
 
 	itemRouter.GET("/", itemController.FindAll)
-	itemRouter.GET("/:id", itemController.FindById)
-	itemRouter.POST("/", itemController.Create)
-	itemRouter.PUT("/:id", itemController.Update)
-	itemRouter.DELETE("/:id", itemController.Delete)
+	itemRoouteWithAuth.GET("/:id", itemController.FindById)
+	itemRoouteWithAuth.POST("/", itemController.Create)
+	itemRoouteWithAuth.PUT("/:id", itemController.Update)
+	itemRoouteWithAuth.DELETE("/:id", itemController.Delete)
 
 	authRouter.POST("/signup", authController.Signup)
 	authRouter.POST("/login", authController.Login)
+
+	return router
+}
+
+func main() {
+
+	infra.Initialize()
+	db := infra.SetupDB()
+
+	router := setUpRouter(db)
 
 	router.Run("localhost:8080") // デフォルトで0.0.0.0:8080で待機します
 

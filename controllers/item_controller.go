@@ -5,6 +5,7 @@ package controllers
 
 import (
 	"gin-freemarket/dto"
+	"gin-freemarket/models"
 	"gin-freemarket/services"
 	"net/http"
 	"strconv"
@@ -22,7 +23,7 @@ type IItemController interface {
 	Delete(ctx *gin.Context)
 }
 
-// コントローラクラスの実態（classに相当。goにはクラスの概念がない。。。）
+// コントローラクラスの実態（larvelでいうclassに相当。goにはクラスの概念がない。。。）
 // Laravelとかだとこの中にメソッドを書いて処理を書くイメージとなるが、goはfunctionとして外に切り出す。
 // プロパティとして、services.IItemService型を投入できる「service」という名のプロパティを定義
 type ItemController struct {
@@ -47,6 +48,19 @@ func (c *ItemController) FindAll(ctx *gin.Context) {
 }
 
 func (c *ItemController) FindById(ctx *gin.Context) {
+
+	// ユーザーミドルウェアで設定されたUser情報を取得する
+	// ctx.Getで取得したものはもれなくany型となる
+	user, exists := ctx.Get("user")
+	if !exists {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	// ctx.Getで取得したものはもれなくany型となるため型アサーションで型指定してやる
+	// このときModelとして準備されている項目であれば、以下のようにすることで指定の構造体のカラムと型をあわせることができる
+	userId := user.(*models.User).ID
+
 	// パスパラメータで受け取ったものは全てstring型になるのでuintに変更してやる
 	itemId, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 
@@ -57,7 +71,7 @@ func (c *ItemController) FindById(ctx *gin.Context) {
 	}
 
 	//サービスクラスメソッド実行
-	item, err := c.service.FindById(uint(itemId))
+	item, err := c.service.FindById(uint(itemId), userId)
 
 	if err != nil {
 		if err.Error() == "Item is not found" {
@@ -72,6 +86,18 @@ func (c *ItemController) FindById(ctx *gin.Context) {
 }
 
 func (c *ItemController) Create(ctx *gin.Context) {
+
+	// ユーザーミドルウェアで設定されたUser情報を取得する
+	// ctx.Getで取得したものはもれなくany型となる
+	user, exists := ctx.Get("user")
+	if !exists {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	// ctx.Getで取得したものはもれなくany型となるため型アサーションで型指定してやる
+	// このときModelとして準備されている項目であれば、以下のようにすることで指定の構造体のカラムと型をあわせることができる
+	userId := user.(*models.User).ID
 
 	// ユーザーからのパラメータ受取用の箱を準備
 	var input dto.CreateItemInput
@@ -88,7 +114,7 @@ func (c *ItemController) Create(ctx *gin.Context) {
 		return
 	}
 
-	newItem, err := c.service.Create(input)
+	newItem, err := c.service.Create(input, userId)
 
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -99,6 +125,18 @@ func (c *ItemController) Create(ctx *gin.Context) {
 }
 
 func (c *ItemController) Update(ctx *gin.Context) {
+
+	// ユーザーミドルウェアで設定されたUser情報を取得する
+	// ctx.Getで取得したものはもれなくany型となる
+	user, exists := ctx.Get("user")
+	if !exists {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	// ctx.Getで取得したものはもれなくany型となるため型アサーションで型指定してやる
+	// このときModelとして準備されている項目であれば、以下のようにすることで指定の構造体のカラムと型をあわせることができる
+	userId := user.(*models.User).ID
 
 	// uintは環境依存（32ビット or 64ビット）となる。これはサーバ環境がどちらでも動くようにするため
 	// 一方でuint64、uint32という型も存在し、上記のuintとは全く異なる型。
@@ -121,7 +159,7 @@ func (c *ItemController) Update(ctx *gin.Context) {
 		return
 	}
 
-	updateedItem, err := c.service.Update(uint(itemId), input)
+	updateedItem, err := c.service.Update(uint(itemId), userId, input)
 
 	if err != nil {
 		if err.Error() == "Item is not found" {
@@ -135,13 +173,26 @@ func (c *ItemController) Update(ctx *gin.Context) {
 }
 
 func (c *ItemController) Delete(ctx *gin.Context) {
+
+	// ユーザーミドルウェアで設定されたUser情報を取得する
+	// ctx.Getで取得したものはもれなくany型となる
+	user, exists := ctx.Get("user")
+	if !exists {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	// ctx.Getで取得したものはもれなくany型となるため型アサーションで型指定してやる
+	// このときModelとして準備されている項目であれば、以下のようにすることで指定の構造体のカラムと型をあわせることができる
+	userId := user.(*models.User).ID
+
 	itemId, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id"})
 		return
 	}
 
-	err = c.service.Delete(uint(itemId))
+	err = c.service.Delete(uint(itemId), userId)
 
 	if err != nil {
 		if err.Error() == "Item is not found" {

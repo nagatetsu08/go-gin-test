@@ -17,11 +17,11 @@ type IItemRepository interface {
 	FindAll() (*[]models.Item, error)
 
 	// id検索は1件のみ返ってくるので、戻り値は*models.Itemとなる（FindAllは複数件返ってくる想定だから配列）
-	FindById(itemId uint) (*models.Item, error)
+	FindById(itemId uint, userId uint) (*models.Item, error)
 
 	Create(newItem models.Item) (*models.Item, error)
 	Update(newItem models.Item) (*models.Item, error)
-	Delete(itemId uint) error
+	Delete(itemId uint, userId uint) error
 }
 
 // アイテム情報をメモリ上に保存・取り扱うための「リポジトリ（倉庫）」となる構造体の定義
@@ -48,7 +48,7 @@ func (r *ItemMemoryRopository) FindAll() (*[]models.Item, error) {
 	return &r.items, nil
 }
 
-func (r *ItemMemoryRopository) FindById(itemId uint) (*models.Item, error) {
+func (r *ItemMemoryRopository) FindById(itemId uint, userId uint) (*models.Item, error) {
 	for _, v := range r.items {
 		if v.ID == itemId {
 			return &v, nil
@@ -73,7 +73,7 @@ func (r *ItemMemoryRopository) Update(updateItem models.Item) (*models.Item, err
 	return nil, errors.New("Unexpected Error")
 }
 
-func (r *ItemMemoryRopository) Delete(itemId uint) error {
+func (r *ItemMemoryRopository) Delete(itemId uint, userId uint) error {
 	for i, v := range r.items {
 		if v.ID == itemId {
 			// goにはスライス（配列）から特定のindexを削除するという処理がないので、以下のように実現している
@@ -106,8 +106,8 @@ func (r *ItemRepository) Create(newItem models.Item) (*models.Item, error) {
 }
 
 // Delete implements IItemRepository.
-func (r *ItemRepository) Delete(itemId uint) error {
-	deleteItem, err := r.FindById(itemId)
+func (r *ItemRepository) Delete(itemId uint, userId uint) error {
+	deleteItem, err := r.FindById(itemId, userId)
 	if err != nil {
 		return err
 	}
@@ -136,13 +136,13 @@ func (r *ItemRepository) FindAll() (*[]models.Item, error) {
 }
 
 // FindById implements IItemRepository.
-func (r *ItemRepository) FindById(itemId uint) (*models.Item, error) {
+func (r *ItemRepository) FindById(itemId uint, userId uint) (*models.Item, error) {
 	var item models.Item
 
 	// 主キーがidであればカラムの指定はいらない
 	// カラム指定の場合は次のような感じ
 	// result := r.db.First(&item, "id = ?", itemId)
-	result := r.db.First(&item, itemId)
+	result := r.db.First(&item, "id = ? AND userId = ?", itemId, userId)
 	if result.Error != nil {
 		if result.Error.Error() == "record not found" {
 			return nil, errors.New("Item is not found")
